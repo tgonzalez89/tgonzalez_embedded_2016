@@ -17,6 +17,8 @@ void help() {
 }
 
 int main(int argc, char* argv[]) {
+
+    // Process arguments
     char* program = NULL;
     int arg;
     while ((arg = getopt(argc, argv, "hap:")) != -1) {
@@ -38,7 +40,6 @@ int main(int argc, char* argv[]) {
                 return -1;
         }
     }
-
     int i;
     for (i = optind; i < argc; i++)
         printf ("-W- Ignoring non-option argument: '%s'\n", argv[i]);
@@ -48,6 +49,7 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
+    // Get libmemcheck.so real path
     char fullpath[PATH_MAX+1];
     char* ret = realpath(argv[0], fullpath);
     char* dirpath = dirname(fullpath);
@@ -57,14 +59,21 @@ int main(int argc, char* argv[]) {
         printf("-E- Can't read library %s\n", lib);
         return -1;
     }
+    // Set the LD_PRELOAD with the libmemcheck.so to be able
+    // to analyze the memory with the overloaded functions.
     char preload_lib[PATH_MAX+64];
     snprintf(preload_lib, PATH_MAX+64, "%s%s", "LD_PRELOAD=", lib);
     char* env[] = {preload_lib, NULL};
+
+    // Fork another process to run the program to analyze
     pid_t pid = fork();
     if (pid < 0) {
         printf("-E- Fork failed.\n");
         return -1;
-    } else if (pid == 0) {
+    } else if (pid == 0) { // This is the child with the program to analyze
+        // Run the program and redirect the stderr to a log.
+        // This log will contain any stderr outputs from the program plus the malloc and free
+        // messages from the overloaded functions in libmemcheck.so.
         printf("-I- %s is running...\n", program);
         int f = open("memcheck.log", O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IWUSR);
         if (f < 0) {
@@ -74,11 +83,14 @@ int main(int argc, char* argv[]) {
         //dup2(f, 1); // redirect stdout
         dup2(f, 2); // redirect stderr
         close(f);
+        // Run the program using LD_PRELOAD
         execle(program, program, NULL, env);
         printf("-E- Child process didn't run properly.\n");
         return -1;
-    } else {
+    } else { // This is the parent program
+        // Wait for the child to end
         wait(NULL);
+        // Read the log file that the child generated and get the results
         FILE* fp;
         if ((fp = fopen("memcheck.log", "r")) == NULL) {
             printf("-E- Can't open file memcheck.log for read.\n");

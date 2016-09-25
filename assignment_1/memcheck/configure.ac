@@ -17,7 +17,7 @@ AC_PROG_CC
 #AC_CHECK_LIB([dl], [main])
 
 # Checks for header files.
-AC_CHECK_HEADERS([stdlib.h unistd.h])
+AC_CHECK_HEADERS([fcntl.h limits.h stdlib.h unistd.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_TYPE_PID_T
@@ -26,6 +26,7 @@ AC_TYPE_SIZE_T
 # Checks for library functions.
 AC_FUNC_FORK
 AC_FUNC_MALLOC
+AC_CHECK_FUNCS([dup2 realpath])
 
 AC_CONFIG_FILES([Makefile
                  lib/Makefile

@@ -25,5 +25,4 @@ make install
 ### clean up:
 make uninstall
 make clean
-rm -rf aclocal.m4 autom4te.cache compile config.guess config.log config.status config.sub configure depcomp install-sh libtool ltmain.sh Makefile Makefile.in missing */.deps */Makefile */Makefile.in
-
+rm -rf aclocal.m4 autom4te.cache compile config.guess config.log config.status config.sub configure depcomp install-sh libtool ltmain.sh Makefile Makefile.in missing */.deps */Makefile */Makefile.in autom4te.cache autoscan.log configure.scan
