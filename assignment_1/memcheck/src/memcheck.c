@@ -7,6 +7,7 @@
 #include <limits.h> // PATH_MAX
 #include <libgen.h> // dirname
 #include <fcntl.h> // open, close
+#include <sys/stat.h> // stat
 
 void help() {
     printf("Usage: memcheck [options]\nOptions:\n");
@@ -71,18 +72,25 @@ int main(int argc, char* argv[]) {
         printf("-E- Fork failed.\n");
         return -1;
     } else if (pid == 0) { // This is the child with the program to analyze
+        printf("-I- %s is running...\n", program);
         // Run the program and redirect the stderr to a log.
         // This log will contain any stderr outputs from the program plus the malloc and free
         // messages from the overloaded functions in libmemcheck.so.
-        printf("-I- %s is running...\n", program);
         int f = open("memcheck.log", O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IWUSR);
         if (f < 0) {
             printf("-E- Can't open file memcheck.log");
             return -1;
         }
-        //dup2(f, 1); // redirect stdout
+        // Redirect stdout to another log file
+        int f2 = open("program_output.log", O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IWUSR);
+        if (f2 < 0) {
+            printf("-E- Can't open file program_output.log");
+            return -1;
+        }
         dup2(f, 2); // redirect stderr
+        dup2(f2, 1); // redirect stdout
         close(f);
+        close(f2);
         // Run the program using LD_PRELOAD
         execle(program, program, NULL, env);
         printf("-E- Child process didn't run properly.\n");
@@ -108,6 +116,15 @@ int main(int argc, char* argv[]) {
             }
         }
         fclose(fp);
+
+        // stdout bug workaround
+        struct stat fileStat;
+        stat("program_output.log", &fileStat);
+        if (fileStat.st_size != 0) {
+            mallocs--;
+            diff--;
+        }
+
         printf("-I- Memory analysis finished.\n");
         printf("-I- Allocations:   %d\n", mallocs);
         printf("-I- Deallocations: %d\n", frees);
