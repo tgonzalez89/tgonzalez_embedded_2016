@@ -1,4 +1,7 @@
 //gcc -shared -fPIC -Wl,--no-as-needed -ldl -o libmemcheck.so libmemcheck.c
+//or 
+//gcc -fPIC -c -o libmemcheck.o libmemcheck.c
+//gcc -shared -o libmemcheck.so libmemcheck.o -ldl
 
 #define _GNU_SOURCE
 
