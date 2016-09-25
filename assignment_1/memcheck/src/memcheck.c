@@ -1,12 +1,12 @@
-//gcc -o memcheck memcheck.c (for use with LD_PRELOAD)
-//gcc -L../lib -o memcheck memcheck.c -lmemcheck (works in this file, not with exec)
-//export LD_LIBRARY_PATH=`realpath ../lib`
+//gcc -o memcheck memcheck.c
 
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
-#include <sys/wait.h>
-#include <dlfcn.h>
+#include <sys/wait.h> // wait
+#include <limits.h> // PATH_MAX
+#include <libgen.h> // dirname
+#include <fcntl.h> // open, close
 
 void help () {
     printf("Usage: memcheck [options]\nOptions:\n");
@@ -19,13 +19,13 @@ void help () {
 int main (int argc, char* argv[]) {
     char* program = NULL;
     int arg;
-    while ((arg = getopt(argc, argv, "ahp:")) != -1) {
+    while ((arg = getopt(argc, argv, "hap:")) != -1) {
         switch (arg) {
-            case 'a':
-                printf("Author: Tomas Gonzalez Aragon\n");
-                return 0;
             case 'h':
                 help();
+                return 0;
+            case 'a':
+                printf("Author: Tomas Gonzalez Aragon\n");
                 return 0;
             case 'p':
                 program = optarg;
@@ -48,19 +48,30 @@ int main (int argc, char* argv[]) {
         return -1;
     }
 
-    char* env[] = {"LD_PRELOAD=/home/tomas/Documents/tgonzalez_embedded_2016/assignment_1/memcheck/lib/.libs/libmemcheck.so", NULL};
+    char fullpath[PATH_MAX+1];
+    char* ret = realpath(argv[0], fullpath);
+    char* dirpath = dirname(fullpath);
+    char preload_lib[PATH_MAX+64];
+    snprintf(preload_lib, PATH_MAX+64, "%s%s%s", "LD_PRELOAD=", dirpath, "/../lib/libmemcheck.so");
+    char* env[] = {preload_lib, NULL};
     pid_t pid = fork();
     if (pid < 0) {
         printf("-E- Fork failed.\n");
+        return -1;
     } else if (pid == 0) {
+        int f = open("memcheck.log", O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+        if (f < 0) {
+            printf("-E- Can't open file memcheck.log");
+            return -1;
+        }
+        dup2(f, 2);
+        close(f);
         execle(program, program, NULL, env);
         printf("-E- Child process didn't run properly.\n");
+        return -1;
     } else {
         wait(NULL);
     }
-
-    //DEBUG
-    free(malloc(10));
 
     return 0;
 }

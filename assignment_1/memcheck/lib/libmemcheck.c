@@ -1,14 +1,12 @@
 //gcc -shared -fPIC -Wl,--no-as-needed -ldl -o libmemcheck.so libmemcheck.c
-//or 
-//gcc -fPIC -c -o libmemcheck.o libmemcheck.c
-//gcc -shared -o libmemcheck.so libmemcheck.o -ldl
 
 #define _GNU_SOURCE
 
 #include <stdio.h>
 #include <dlfcn.h>
 
-int diff = 0;
+int mallocs = 0;
+int frees = 0;
 
 static void* (*real_malloc)(size_t) = NULL;
 
@@ -24,8 +22,8 @@ void* malloc(size_t size) {
 
     void* p = NULL;
     p = real_malloc(size);
-    diff++;
-    fprintf(stderr, "malloc(%ld) = %p, mallocs-frees = %d\n", size, p, diff);
+    mallocs++;
+    fprintf(stderr, "%p = malloc(%ld), mallocs: %d frees: %d diff: %d\n", p, size, mallocs, frees, mallocs-frees);
     return p;
 }
 
@@ -42,7 +40,7 @@ void free(void* p) {
         free_init();
 
     real_free(p);
-    diff--;
-    fprintf(stderr, "free(%p), mallocs-frees = %d\n", p, diff);
+    frees++;
+    fprintf(stderr, "free(%p), mallocs: %d frees: %d diff: %d\n", p, mallocs, frees, mallocs-frees);
     return;
 }
