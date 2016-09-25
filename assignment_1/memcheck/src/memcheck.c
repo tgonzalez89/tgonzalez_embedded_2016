@@ -8,7 +8,7 @@
 #include <libgen.h> // dirname
 #include <fcntl.h> // open, close
 
-void help () {
+void help() {
     printf("Usage: memcheck [options]\nOptions:\n");
     printf("  -a\t\t\tPrint the information of the author of this program and exit.\n");
     printf("  -h\t\t\tPrint this message and exit.\n");
@@ -16,7 +16,7 @@ void help () {
     return;
 }
 
-int main (int argc, char* argv[]) {
+int main(int argc, char* argv[]) {
     char* program = NULL;
     int arg;
     while ((arg = getopt(argc, argv, "hap:")) != -1) {
@@ -51,26 +51,55 @@ int main (int argc, char* argv[]) {
     char fullpath[PATH_MAX+1];
     char* ret = realpath(argv[0], fullpath);
     char* dirpath = dirname(fullpath);
+    char lib[PATH_MAX+32];
+    snprintf(lib, PATH_MAX+32, "%s%s", dirpath, "/../lib/libmemcheck.so");
+    if (access(lib, R_OK & F_OK) == -1) {
+        printf("-E- Can't read library %s\n", lib);
+        return -1;
+    }
     char preload_lib[PATH_MAX+64];
-    snprintf(preload_lib, PATH_MAX+64, "%s%s%s", "LD_PRELOAD=", dirpath, "/../lib/libmemcheck.so");
+    snprintf(preload_lib, PATH_MAX+64, "%s%s", "LD_PRELOAD=", lib);
     char* env[] = {preload_lib, NULL};
     pid_t pid = fork();
     if (pid < 0) {
         printf("-E- Fork failed.\n");
         return -1;
     } else if (pid == 0) {
-        int f = open("memcheck.log", O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+        printf("-I- %s is running...\n", program);
+        int f = open("memcheck.log", O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IWUSR);
         if (f < 0) {
             printf("-E- Can't open file memcheck.log");
             return -1;
         }
-        dup2(f, 2);
+        //dup2(f, 1); // redirect stdout
+        dup2(f, 2); // redirect stderr
         close(f);
         execle(program, program, NULL, env);
         printf("-E- Child process didn't run properly.\n");
         return -1;
     } else {
         wait(NULL);
+        FILE* fp;
+        if ((fp = fopen("memcheck.log", "r")) == NULL) {
+            printf("-E- Can't open file memcheck.log for read.\n");
+            return -1;
+        }
+        char line[1024];
+        int size, mallocs, frees, diff;
+        while (fgets(line, sizeof(line), fp) != NULL) {
+            if (sscanf(line, "%*x = malloc(%d), mallocs: %d frees: %d diff: %d", &size, &mallocs, &frees, &diff) == 4) {
+                //printf("m %d %d %d : %d\n", mallocs, frees, diff, size);
+            } else if (sscanf(line, "free(%*x), mallocs: %d frees: %d diff: %d", &mallocs, &frees, &diff) == 3) {
+                //printf("f %d %d %d\n", mallocs, frees, diff);
+            } else {
+                printf("-W- Invalid line: %s", line);
+            }
+        }
+        fclose(fp);
+        printf("-I- Memory analysis finished.\n");
+        printf("-I- Allocations:   %d\n", mallocs);
+        printf("-I- Deallocations: %d\n", frees);
+        printf("-I- Leaks found:   %d\n", diff);
     }
 
     return 0;
