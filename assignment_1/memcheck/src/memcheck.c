@@ -7,6 +7,7 @@
 #include <limits.h> // PATH_MAX
 #include <libgen.h> // dirname
 #include <fcntl.h> // open, close
+#include <sys/stat.h> // stat
 
 void help() {
     printf("Usage: memcheck [options]\nOptions:\n");
@@ -17,6 +18,8 @@ void help() {
 }
 
 int main(int argc, char* argv[]) {
+
+    // Process arguments
     char* program = NULL;
     int arg;
     while ((arg = getopt(argc, argv, "hap:")) != -1) {
@@ -38,7 +41,6 @@ int main(int argc, char* argv[]) {
                 return -1;
         }
     }
-
     int i;
     for (i = optind; i < argc; i++)
         printf ("-W- Ignoring non-option argument: '%s'\n", argv[i]);
@@ -48,6 +50,7 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
+    // Get libmemcheck.so real path
     char fullpath[PATH_MAX+1];
     char* ret = realpath(argv[0], fullpath);
     char* dirpath = dirname(fullpath);
@@ -57,28 +60,45 @@ int main(int argc, char* argv[]) {
         printf("-E- Can't read library %s\n", lib);
         return -1;
     }
+    // Set the LD_PRELOAD with the libmemcheck.so to be able
+    // to analyze the memory with the overloaded functions.
     char preload_lib[PATH_MAX+64];
     snprintf(preload_lib, PATH_MAX+64, "%s%s", "LD_PRELOAD=", lib);
     char* env[] = {preload_lib, NULL};
+
+    // Fork another process to run the program to analyze
     pid_t pid = fork();
     if (pid < 0) {
         printf("-E- Fork failed.\n");
         return -1;
-    } else if (pid == 0) {
+    } else if (pid == 0) { // This is the child with the program to analyze
         printf("-I- %s is running...\n", program);
+        // Run the program and redirect the stderr to a log.
+        // This log will contain any stderr outputs from the program plus the malloc and free
+        // messages from the overloaded functions in libmemcheck.so.
         int f = open("memcheck.log", O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IWUSR);
         if (f < 0) {
             printf("-E- Can't open file memcheck.log");
             return -1;
         }
-        //dup2(f, 1); // redirect stdout
+        // Redirect stdout to another log file
+        int f2 = open("program_output.log", O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IWUSR);
+        if (f2 < 0) {
+            printf("-E- Can't open file program_output.log");
+            return -1;
+        }
         dup2(f, 2); // redirect stderr
+        dup2(f2, 1); // redirect stdout
         close(f);
+        close(f2);
+        // Run the program using LD_PRELOAD
         execle(program, program, NULL, env);
         printf("-E- Child process didn't run properly.\n");
         return -1;
-    } else {
+    } else { // This is the parent program
+        // Wait for the child to end
         wait(NULL);
+        // Read the log file that the child generated and get the results
         FILE* fp;
         if ((fp = fopen("memcheck.log", "r")) == NULL) {
             printf("-E- Can't open file memcheck.log for read.\n");
@@ -96,6 +116,15 @@ int main(int argc, char* argv[]) {
             }
         }
         fclose(fp);
+
+        // stdout bug workaround
+        struct stat fileStat;
+        stat("program_output.log", &fileStat);
+        if (fileStat.st_size != 0) {
+            mallocs--;
+            diff--;
+        }
+
         printf("-I- Memory analysis finished.\n");
         printf("-I- Allocations:   %d\n", mallocs);
         printf("-I- Deallocations: %d\n", frees);
