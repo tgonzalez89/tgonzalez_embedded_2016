@@ -1,0 +1,25 @@
+Reading symbols from main...done.
+Breakpoint 1 at 0x40054c: file main.c, line 10.
+Hardware watchpoint 2: dummy
+Starting program: /home/tomas/Documents/assignment_2/main 
+
+Breakpoint 1, main (argc=1, argv=0x7fffffffdf68) at main.c:10
+10	printf("Starting %s\n", __FILE__);
+Continuing.
+
+Hardware watchpoint 2: dummy
+
+Old value = 0
+New value = 5
+modify_dummy (a=0x60103c <dummy>, value=5) at main.c:7
+7	}
+Continuing.
+
+Hardware watchpoint 2: dummy
+
+Old value = 5
+New value = 10
+modify_dummy (a=0x60103c <dummy>, value=10) at main.c:7
+7	}
+Continuing.
+[Inferior 1 (process 10325) exited normally]

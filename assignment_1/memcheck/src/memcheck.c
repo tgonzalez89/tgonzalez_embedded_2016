@@ -11,9 +11,9 @@
 
 void help() {
     printf("Usage: memcheck [options]\nOptions:\n");
+    printf("  -p PROGRAM\t\tDo memory analysis of PROGRAM.\n");
     printf("  -a\t\t\tPrint the information of the author of this program and exit.\n");
     printf("  -h\t\t\tPrint this message and exit.\n");
-    printf("  -p PROGRAM\t\tDo memory analysis of PROGRAM.\n");
     return;
 }
 
