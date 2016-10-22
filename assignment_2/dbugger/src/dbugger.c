@@ -4,16 +4,70 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <sys/syscall.h>
 #include <sys/ptrace.h>
 #include <sys/types.h>
 #include <sys/user.h>
 #include <sys/wait.h>
 
+// Obtain a global variable address and size
+// Obtain min and max addresses of binary being debugged
+int get_var_info_and_bin_min_max_addr(char* binary, char* var_name, long* var_addr, long* var_size, unsigned long* min_addr, unsigned long* max_addr) {
+    int found = 0;
+    if (var_name == NULL) found = 1;
+    pid_t pid = fork();
+    if (pid < 0) {
+        printf("-E- Fork failed.\n");
+        return -1;
+    } else if (pid == 0) {
+        // Redirect stdout to a log file
+        int f = open("nm.log", O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IWUSR);
+        if (f < 0) {
+            printf("-E- Can't open file nm.log");
+            return -1;
+        }
+        dup2(f, 1);
+        close(f);
+        // Run nm
+        execl("/usr/bin/nm", "nm", "-S", binary, NULL);
+        printf("-E- Child process didn't run properly.\n");
+        return -1;
+    } else {
+        wait(NULL); // Wait for the child to end
+        // Read the log file that the child generated and get the results
+        FILE* fp;
+        if ((fp = fopen("nm.log", "r")) == NULL) {
+            printf("-E- Can't open file nm.log for read.\n");
+            return -1;
+        }
+        char line[1024];
+        char var_name_testing[1024];
+        unsigned long addr;
+        *min_addr = 0xffffffffffffffff;
+        *max_addr = 0;
+        while (fgets(line, sizeof(line), fp) != NULL) {
+            // Try to obtain var address
+            if (!found)
+                if (sscanf(line, "%lx %lx %*c %s", var_addr, var_size, var_name_testing) == 3)
+                    if (strcmp(var_name, var_name_testing) == 0)
+                        found = 1;
+            // Try to obtain min and max
+            if (sscanf(line, "%lx %*s", &addr) == 1) {
+                if (addr < *min_addr) *min_addr = addr;
+                if (addr > *max_addr) *max_addr = addr;
+            }
+        }
+        fclose(fp);
+        if (!found) printf("-E- No global variable named '%s'.\n", var_name);
+    }
+    return found;
+}
+
 void help() {
     printf("Usage: dbugger [options]\nOptions:\n");
     printf("  -b BINARY\t\tBinary program to debug.\n");
-    printf("  -w VAR_ADDR\t\tAddress of variable for the debugger to watch.\n");
+    printf("  -w VAR_NAME\t\tName of global variable for the debugger to watch.\n");
     printf("  -s\t\t\tStep mode.\n");
     printf("  -a\t\t\tPrint the information of the author of this program and exit.\n");
     printf("  -h\t\t\tPrint this message and exit.\n");
@@ -21,9 +75,9 @@ void help() {
 }
 
 int main(int argc, char* argv[]) {
-
     // Process arguments
     char* binary = NULL;
+    char* var_name = NULL;
     long var_addr = 0;
     int var_addr_opt = 0;
     int step_mode = 0;
@@ -40,7 +94,8 @@ int main(int argc, char* argv[]) {
                 binary = optarg;
                 break;
             case 'w':
-                var_addr = strtol(optarg, NULL, 0);
+                //var_addr = strtol(optarg, NULL, 16);
+                var_name = optarg;
                 var_addr_opt = 1;
                 break;
             case 's':
@@ -63,6 +118,16 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
+    // Obtain variable address from its name
+    // Obtain min and max addresses of binary being debugged
+    unsigned long min_addr = 0;
+    unsigned long max_addr = 0xffffffffffffffff;
+    unsigned long var_size = 8;
+    if (!get_var_info_and_bin_min_max_addr(binary, var_name, &var_addr, &var_size, &min_addr, &max_addr))
+            return -1;
+    //printf("-D- min_addr: 0x%lx, max_addr: 0x%lx\n", min_addr, max_addr);
+    //getchar();
+
     pid_t pid = fork();
     if (pid < 0) {
         printf("-E- Fork failed.\n");
@@ -70,36 +135,71 @@ int main(int argc, char* argv[]) {
     } else if (pid == 0) { // This is the child with the program to analyze
         ptrace(PTRACE_TRACEME, pid, NULL, NULL);
         execl(binary, binary, NULL);
+        printf("-E- Binary didn't run properly.\n");
+        return -1;
     } else { // This is the parent program
         struct user_regs_struct regs;
-        long ins;
+        unsigned long ins;
         int status;
-        int var_value = ptrace(PTRACE_PEEKTEXT, pid, var_addr, NULL);
-        int prev_var_value;
+        long var_value;
+        long prev_var_value;
+        int var_value_init = 0;
         do {
             waitpid(pid, &status, 0);
             ptrace(PTRACE_GETREGS, pid, NULL, &regs);
-            if (step_mode) {
-                fprintf(stderr, "Press ENTER to continue...");
-                getchar();
-            }
-            if (var_addr_opt) {
-                prev_var_value = var_value;
-                var_value = ptrace(PTRACE_PEEKTEXT, pid, var_addr, NULL);
-                if (prev_var_value != var_value) {
-                    printf("Variable at 0x%lx changed:\nOld value = %d\nNew value = %d\n", var_addr, prev_var_value, var_value);
-                    if (!step_mode) {
-                        fprintf(stderr, "Press ENTER to continue...");
-                        getchar();
+            // Only interact with instructions inside min and max
+            if ((unsigned long)regs.rip >= min_addr && (unsigned long)regs.rip <= max_addr) {
+                ins = ptrace(PTRACE_PEEKTEXT, pid, regs.rip, NULL);
+                printf("-I- PC: 0x%016llx Instruction executed: 0x%016lx\n", regs.rip, ins);
+                // If variable changed, print old and new value
+                if (var_addr_opt) {
+                    prev_var_value = var_value;
+                    if (!var_value_init) {
+                        prev_var_value = ptrace(PTRACE_PEEKTEXT, pid, var_addr, NULL);
+                        var_value_init = 1;
+                    }
+                    var_value = ptrace(PTRACE_PEEKTEXT, pid, var_addr, NULL);
+                    long new_var_value;
+                    long new_prev_var_value;
+                    switch (var_size) {
+                        case 8:
+                            break;
+                        case 4:
+                            new_prev_var_value = (int)prev_var_value;
+                            new_var_value = (int)var_value;
+                            break;
+                        case 2:
+                            new_prev_var_value = (short)prev_var_value;
+                            new_var_value = (short)var_value;
+                            break;
+                        case 1:
+                            new_prev_var_value = (char)prev_var_value;
+                            new_var_value = (char)var_value;
+                            break;
+                        default:
+                            printf("-W- Variable of size %ld. Supported sizes (in bytes) are: 8, 4, 2 and 1. Its value may be wrong.\n", var_size);
+                            break;
+                    }
+                    if (new_prev_var_value != new_var_value) {
+                        printf("-I- Variable '%s' at 0x%016lx changed:\n", var_name, var_addr);
+                        printf("-I- Old value = 0x%016lx (%ld)\n", prev_var_value, new_prev_var_value);
+                        printf("-I- New value = 0x%016lx (%ld)\n", var_value, new_var_value);
+                        /*if (!step_mode) {
+                            fprintf(stderr, "Press ENTER to continue...");
+                            getchar();
+                        }*/
                     }
                 }
+                // In step mode wait for user to press Enter
+                if (step_mode) {
+                    fprintf(stderr, "...Press ENTER to continue...");
+                    getchar();
+                }
             }
-            ins = ptrace(PTRACE_PEEKTEXT, pid, regs.rip, NULL);
-            printf("PC: 0x%llx Instruction executed: 0x%lx\n", regs.rip, ins);
             ptrace(PTRACE_SINGLESTEP, pid, NULL, NULL);
             //ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
         } while (!WIFEXITED(status));
-        printf("Program exited!\n");
+        printf("-I- Program exited!\n");
     }
 
     return 0;
