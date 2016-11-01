@@ -1,0 +1,56 @@
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls   s/call   s/call  name    
+ 25.21      8.20     8.20        1     8.20    19.48  stbi_zlib_compress
+ 25.12     16.37     8.17 47779831     0.00     0.00  stbiw__zlib_countm
+ 19.12     22.59     6.22        1     6.22    27.79  stbi_write_png_to_mem
+  5.44     24.36     1.77 23991999     0.00     0.00  stbiw__paeth
+  5.16     26.04     1.68   282000     0.00     0.00  stbi__idct_block
+  4.09     27.37     1.33                             main
+  3.78     28.60     1.23  6046707     0.00     0.00  stbiw__zlib_bitrev
+  3.14     29.62     1.02  8197581     0.00     0.00  stbiw__zlib_flushf
+  2.58     30.46     0.84  6674569     0.00     0.00  stbiw__zhash
+  1.60     30.98     0.52   282000     0.00     0.00  stbi__jpeg_decode_block
+  1.17     31.36     0.38        1     0.38     3.41  load_jpeg_image
+  0.98     31.68     0.32        3     0.11     0.11  stbiw__crc32
+  0.89     31.97     0.29 18048000     0.00     0.00  stbi__clamp
+  0.65     32.18     0.21  1137446     0.00     0.00  stbi__grow_buffer_unsafe
+  0.37     32.30     0.12   866968     0.00     0.00  stbi__jpeg_huff_decode
+  0.25     32.38     0.08   544201     0.00     0.00  stbi__extend_receive
+  0.22     32.45     0.07        1     0.07     3.03  stbi__parse_entropy_coded_data
+  0.18     32.51     0.06  2388071     0.00     0.00  stbi__get8
+  0.06     32.53     0.02    64890     0.00     0.00  stbiw__sbgrowf
+  0.00     32.53     0.00    18659     0.00     0.00  stbi__refill_buffer
+  0.00     32.53     0.00    18659     0.00     0.00  stbi__stdio_read
+  0.00     32.53     0.00     3000     0.00     0.00  resample_row_1
+  0.00     32.53     0.00       14     0.00     0.00  stbi__get_marker
+  0.00     32.53     0.00       13     0.00     0.00  stbi__get16be
+  0.00     32.53     0.00        9     0.00     0.00  stbi__process_marker
+  0.00     32.53     0.00        6     0.00     0.00  stbi__malloc
+  0.00     32.53     0.00        4     0.00     0.00  stbi__build_huffman
+  0.00     32.53     0.00        3     0.00     0.00  stbi__skip
+  0.00     32.53     0.00        3     0.00     0.11  stbiw(wchar_t, char *, long double, char)
+  0.00     32.53     0.00        2     0.00     0.00  stbi__build_fast_ac
+  0.00     32.53     0.00        2     0.00     0.00  stbi__decode_jpeg_header
+  0.00     32.53     0.00        2     0.00     0.00  stbi__setup_jpeg
+  0.00     32.53     0.00        2     0.00     0.00  stbi__stdio_skip
+  0.00     32.53     0.00        1     0.00     0.00  run_kernel
+  0.00     32.53     0.00        1     0.00     0.00  stbi__cleanup_jpeg
+  0.00     32.53     0.00        1     0.00     3.03  stbi__decode_jpeg_image
+  0.00     32.53     0.00        1     0.00     0.00  stbi__fopen
+  0.00     32.53     0.00        1     0.00     3.41  stbi__jpeg_load
+  0.00     32.53     0.00        1     0.00     0.00  stbi__jpeg_reset
+  0.00     32.53     0.00        1     0.00     0.00  stbi__jpeg_test
+  0.00     32.53     0.00        1     0.00     3.41  stbi__load_flip
+  0.00     32.53     0.00        1     0.00     3.41  stbi__load_main
+  0.00     32.53     0.00        1     0.00     0.00  stbi__process_frame_header
+  0.00     32.53     0.00        1     0.00     0.00  stbi__process_scan_header
+  0.00     32.53     0.00        1     0.00     0.00  stbi__rewind
+  0.00     32.53     0.00        1     0.00     0.00  stbi__start_callbacks
+  0.00     32.53     0.00        1     0.00     0.00  stbi__start_file
+  0.00     32.53     0.00        1     0.00     0.00  stbi_image_free
+  0.00     32.53     0.00        1     0.00     3.41  stbi_load
+  0.00     32.53     0.00        1     0.00     3.41  stbi_load_from_file
+  0.00     32.53     0.00        1     0.00    27.79  stbi_write_png
