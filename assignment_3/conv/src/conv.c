@@ -21,7 +21,7 @@ void run_kernel(const double* kernel, const unsigned char* input_data, unsigned 
         for (i = 0; i < w; i++) {
             int pos = i + j*w;
             if (i == 0 || i == w-1 || j == 0 || j == h-1) {
-                *(output_data + pos) = 0;
+                *(output_data + pos) = *(input_data + pos);
                 continue;
             }
             double temp = *(input_data + pos-1-w)*kernel[0] + *(input_data + pos-w)*kernel[1] + *(input_data + pos+1-w)*kernel[2] +
