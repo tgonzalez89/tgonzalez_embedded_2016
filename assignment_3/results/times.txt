@@ -1,0 +1,25 @@
+#run with -O3
+
+#1 core
+pi@raspberrypi:~/tgonzalez_embedded_2016/assignment_3/conv/src $ ./conv1 -i DSCN2619.JPG -o o.png -k 1
+run_kernel elapsed time: 1.577671 seconds
+Total elapsed time: 10.687548 seconds
+
+#4 cores
+pi@raspberrypi:~/tgonzalez_embedded_2016/assignment_3/conv/src $ ./conv2 -i DSCN2619.JPG -o o.png -k 1
+run_kernel elapsed time: 0.485481 seconds
+Total elapsed time: 9.671203 seconds
+
+
+
+#run with -pg
+
+#1 core
+pi@raspberrypi:~/tgonzalez_embedded_2016/assignment_3/conv/src $ ./conv1pg -i DSCN2619.JPG -o o.png -k 1
+run_kernel elapsed time: 4.144954 seconds
+Total elapsed time: 48.918752 seconds
+
+#4 cores
+pi@raspberrypi:~/tgonzalez_embedded_2016/assignment_3/conv/src $ ./conv2pg -i DSCN2619.JPG -o o.png -k 1
+run_kernel elapsed time: 1.328942 seconds
+Total elapsed time: 46.856066 seconds
