@@ -1,0 +1,106 @@
+##### QEMU normal boot sequence #####
+
+### 1. Download and install pre-requisites
+# Install QEMU
+sudo apt-get install qemu-system-arm
+# Install mkimage
+sudo apt-get install u-boot-tools
+# Needed to compile stuff
+sudo apt-get install build-essential automake autoconf libtool
+# Do this if you are using a 64 bit OS
+sudo apt-get install lib32z1 lib32ncurses5 lib32stdc++6
+# Needed for menuconfig
+sudo apt-get install libncurses5-dev
+# Install Linaro Toolchain
+sudo apt-get install gcc-arm-linux-gnueabi
+# Download the U-Boot source code
+wget ftp://ftp.denx.de/pub/u-boot/u-boot-2010.03.tar.bz2
+# Download the Linux kernel source code
+wget http://www.kernel.org/pub/linux/kernel/v2.6/linux-2.6.33.tar.bz2
+# Download the BusyBox source code
+wget https://busybox.net/downloads/busybox-1.24.1.tar.bz2
+# Extract the downloaded files
+tar xf u-boot-2010.03.tar.bz2
+tar xf linux-2.6.33.tar.bz2
+tar xf busybox-1.24.1.tar.bz2
+
+### 2. Compile U-Boot
+cd u-boot-2010.03
+# Create a text file named u-boot-2010.03.patch with the following contents
+# Copy this text exactly as it is, be sure that your text editor doesn't convert tabs to spaces
+diff -rupN u-boot-2010.03.orig/common/image.c u-boot-2010.03/common/image.c
+--- u-boot-2010.03.orig/common/image.c	2016-11-20 16:35:06.390097807 -0600
++++ u-boot-2010.03/common/image.c	2016-11-20 16:35:33.057119304 -0600
+@@ -941,7 +941,7 @@ int boot_get_ramdisk (int argc, char *ar
+ 			return 1;
+ 		}
+ 
+-#if defined(CONFIG_B2) || defined(CONFIG_EVB4510) || defined(CONFIG_ARMADILLO)
++#if defined(CONFIG_B2) || defined(CONFIG_EVB4510) || defined(CONFIG_ARMADILLO) || defined(CONFIG_VERSATILE)
+ 		/*
+ 		* We need to copy the ramdisk to SRAM to let Linux boot
+ 		*/
+diff -rupN u-boot-2010.03.orig/include/configs/versatile.h u-boot-2010.03/include/configs/versatile.h
+--- u-boot-2010.03.orig/include/configs/versatile.h	2016-11-20 16:35:06.454095471 -0600
++++ u-boot-2010.03/include/configs/versatile.h	2016-11-20 16:36:11.403695981 -0600
+@@ -124,8 +124,11 @@
+ #define CONFIG_BOOTP_SUBNETMASK
+ 
+ #define CONFIG_BOOTDELAY	2
+-#define CONFIG_BOOTARGS		"root=/dev/nfs mem=128M ip=dhcp "\
+-				"netdev=25,0,0xf1010000,0xf1010010,eth0"
++/*#define CONFIG_BOOTARGS      "root=/dev/nfs mem=128M ip=dhcp "\
+++               "netdev=25,0,0xf1010000,0xf1010010,eth0"*/
++#define CONFIG_BOOTARGS        "root=/dev/ram mem=128M rdinit=/sbin/init"
++#define CONFIG_BOOTCOMMAND   "bootm 0x210000 0x410000"
++#define CONFIG_INITRD_TAG   1
+ 
+ /*
+  * Static configuration when assigning fixed address
+### END OF FILE. DON'T COPY THIS LINE ###
+# Apply the patch
+patch -p1 < u-boot-2010.03.patch
+# Compile U-Boot
+make ARCH=arm CROSS_COMPILE=arm-linux-gnueabi- versatilepb_config
+make ARCH=arm CROSS_COMPILE=arm-linux-gnueabi- all
+cd ..
+
+### 2. Compile the Linux kernel
+cd linux-2.6.33
+make ARCH=arm CROSS_COMPILE=arm-linux-gnueabi- versatile_defconfig
+make ARCH=arm CROSS_COMPILE=arm-linux-gnueabi- menuconfig
+# Enable: Kernel Features --> Use the ARM EABI to compile the kernel
+make ARCH=arm CROSS_COMPILE=arm-linux-gnueabi- all
+cd ..
+
+### 3. Compile BusyBox
+cd busybox-1.24.1
+make ARCH=arm CROSS_COMPILE=arm-linux-gnueabi- defconfig
+make ARCH=arm CROSS_COMPILE=arm-linux-gnueabi- menuconfig
+# Enable: Busybox Settings --> Build Options --> Build BusyBox as a static binary (no shared libs)
+make ARCH=arm CROSS_COMPILE=arm-linux-gnueabi- install
+cd _install
+mkdir proc sys dev etc etc/init.d
+# Create a new file etc/init.d/rcS with the following contents:
+#!/bin/sh
+mount -t proc none /proc
+mount -t sysfs none /sys
+/sbin/mdev -s
+### END OF FILE. DON'T COPY THIS LINE ###
+chmod +x etc/init.d/rcS
+find . | cpio -o --format=newc > ../rootfs.img
+cd ..
+gzip -c rootfs.img > rootfs.img.gz
+cd ..
+
+### 4. Putting it all together and booting with QEMU
+cp u-boot-2010.03/u-boot.bin .
+cp linux-2.6.33/arch/arm/boot/zImage .
+cp busybox-1.24.1/rootfs.img.gz .
+mkimage -A arm -C none -O linux -T kernel -d zImage -a 0x00010000 -e 0x00010000 zImage.uimg
+mkimage -A arm -C none -O linux -T ramdisk -d rootfs.img.gz -a 0x00800000 -e 0x00800000 rootfs.uimg
+dd if=/dev/zero of=flash.bin bs=1 count=6M
+dd if=u-boot.bin of=flash.bin conv=notrunc bs=1
+dd if=zImage.uimg of=flash.bin conv=notrunc bs=1 seek=2M
+dd if=rootfs.uimg of=flash.bin conv=notrunc bs=1 seek=4M
+qemu-system-arm -M versatilepb -m 128M -kernel flash.bin

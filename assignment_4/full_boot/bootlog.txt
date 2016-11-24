@@ -1,0 +1,2 @@
+Command used: qemu-system-arm -M versatilepb -m 128M -kernel images/flash.bin -serial stdio -append "console=ttyAMA0"
+See bootlog.png
