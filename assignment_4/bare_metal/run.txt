@@ -1,0 +1,6 @@
+printf "\n### USE THIS COMMAND TO BOOT: ###\nbootm 0x%X\n#################################\n\n" $(expr $(stat -c%s images/u-boot.bin) + 65536)
+# Save the memory adress of the output of the printf command
+qemu-system-arm -M versatilepb -m 128M -kernel images/flash.bin -serial stdio -append "console=ttyAMA0"
+# At the U-Boot prompt boot using the address saved before:
+bootm <adress>
+
