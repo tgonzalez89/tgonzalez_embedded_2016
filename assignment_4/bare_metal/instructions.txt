@@ -1,0 +1,42 @@
+##### Bare metal application #####
+### 1. Download and install pre-requisites
+# Install QEMU
+sudo apt-get install qemu-system-arm
+# Install mkimage
+sudo apt-get install u-boot-tools
+# Needed to run the Linaro Toolchain and compile U-Boot
+sudo apt-get install build-essential automake autoconf libtool
+# Do this if you are using a 64 bit OS
+sudo apt-get install lib32z1 lib32ncurses5 lib32stdc++6
+# Just in case
+sudo apt-get install libncurses5-dev
+# Install Linaro Toolchain
+sudo apt-get install gcc-arm-linux-gnueabi
+# Download U-Boot
+wget ftp://ftp.denx.de/pub/u-boot/u-boot-2010.03.tar.bz2
+# Extract the downloaded files
+tar xf u-boot-2010.03.tar.bz2
+
+### 2. Compile U-Boot
+cd u-boot-2010.03
+make versatilepb_config ARCH=arm CROSS_COMPILE=arm-linux-gnueabi-
+make all ARCH=arm CROSS_COMPILE=arm-linux-gnueabi-
+cd ..
+
+### 3. Compile the app
+cd app
+arm-linux-gnueabi-as -mcpu=arm926ej-s startup.s -o startup.o
+arm-linux-gnueabi-gcc -c -mcpu=arm926ej-s test.c -o test.o
+arm-linux-gnueabi-ld -T test.ld -Map=test.map test.o startup.o -o test.elf
+arm-linux-gnueabi-objcopy -O binary test.elf test.bin
+mkimage -A arm -C none -O linux -T kernel -d test.bin -a 0x00100000 -e 0x00100000 test.uimg
+cd ..
+
+### 4. Combine U-Boot with the app, boot and run the app
+cat u-boot-2010.03/u-boot.bin app/test.uimg > flash.bin
+printf "\n### USE THIS COMMAND TO BOOT: ###\nbootm 0x%X\n#################################\n\n" $(expr $(stat -c%s u-boot-2010.03/u-boot.bin) + 65536)
+# Save the memory adress of the output of the printf command
+qemu-system-arm -M versatilepb -m 128M -kernel flash.bin -serial stdio -append "console=ttyAMA0"
+# At the U-Boot prompt boot using the address saved before:
+bootm <adress>
+

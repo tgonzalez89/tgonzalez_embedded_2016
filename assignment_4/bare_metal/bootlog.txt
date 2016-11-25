@@ -1,0 +1,48 @@
+tomas@ubuntu:~/bare_metal$ qemu-system-arm -M versatilepb -m 128M -kernel flash.bin -serial stdio -append "console=ttyAMA0" | tee bootlog.txt
+
+U-Boot 2010.03 (Nov 24 2016 - 17:49:19)
+
+DRAM:   0 kB
+Flash: 64 MB
+*** Warning - bad CRC, using default environment
+
+In:    serial
+Out:   serial
+Err:   serial
+Net:   SMC91111-0
+VersatilePB # bootm 0x253A4
+
+## Booting kernel from Legacy Image at 000253a4 ...
+   Image Name:   
+   Image Type:   ARM Linux Kernel Image (uncompressed)
+   Data Size:    2304 Bytes =  2.3 kB
+   Load Address: 00100000
+   Entry Point:  00100000
+   Loading Kernel Image ... OK
+OK
+
+Starting kernel ...
+
+Type the first operand: 123
+Type the operation (+ or *): +
+Type the second operand: 100
+Result = 223
+123 + 100 = 223
+
+Type the first operand: -897
+Type the operation (+ or *): *
+Type the second operand: 2
+Result = -1794
+-897 * 2 = -1794
+
+Type the first operand: 123a
+Type the operation (+ or *): +
+Type the second operand: 43
+ERROR: 1
+
+Type the first operand: 12
+Type the operation (+ or *): .
+Type the second operand: 4
+ERROR: 3
+
+Type the first operand: 
